@@ -1,9 +1,9 @@
 package com.Mindwork.mindtrack.service;
 
-
 import com.Mindwork.mindtrack.dto.HabitDto;
 import com.Mindwork.mindtrack.entity.Habit;
 import com.Mindwork.mindtrack.entity.HabitLog;
+import com.Mindwork.mindtrack.entity.Notification;
 import com.Mindwork.mindtrack.entity.User;
 import com.Mindwork.mindtrack.repository.HabitLogRepository;
 import com.Mindwork.mindtrack.repository.HabitRepository;
@@ -19,9 +19,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class HabitService {
 
-    private final HabitRepository habitRepository;
-    private final HabitLogRepository habitLogRepository;
-    private final UserRepository userRepository;
+    private final HabitRepository        habitRepository;
+    private final HabitLogRepository     habitLogRepository;
+    private final UserRepository         userRepository;
+    private final NotificationService    notificationService; // ← added
 
     public HabitDto.HabitResponse createHabit(Long userId, HabitDto.CreateHabitRequest request) {
         User user = userRepository.findById(userId)
@@ -77,6 +78,17 @@ public class HabitService {
         }
 
         HabitLog saved = habitLogRepository.save(log);
+
+        // ── Send notification when habit is marked DONE ──────────────
+        if (saved.getStatus() == HabitLog.LogStatus.DONE) {
+            notificationService.createNotification(
+                    habit.getUser().getId(),
+                    "Habit completed! ◧",
+                    "You completed \"" + habit.getName() + "\" — keep the streak alive!",
+                    Notification.NotificationType.HABIT_REMINDER
+            );
+        }
+
         return toHabitLogResponse(saved);
     }
 
