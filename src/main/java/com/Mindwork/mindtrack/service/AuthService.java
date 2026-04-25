@@ -14,14 +14,12 @@ public class AuthService {
 
     public AuthDto.AuthResponse register(AuthDto.RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+            throw new RuntimeException("An account with this email already exists. Please login instead.");
         }
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already taken");
+            throw new RuntimeException("This username is already taken. Please choose another.");
         }
 
-        // NOTE: In production, use BCryptPasswordEncoder to hash passwords.
-        // For MVP simplicity, storing as plain text. Add Spring Security later.
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
@@ -34,18 +32,34 @@ public class AuthService {
                 saved.getId(),
                 saved.getUsername(),
                 saved.getEmail(),
-                "User registered successfully"
+                "Account created successfully"
         );
     }
 
     public AuthDto.AuthResponse login(AuthDto.LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
-        // NOTE: In production, use passwordEncoder.matches() here
+        // ── Approach 2: Specific messages (pick this for MVP) ────────
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException(
+                        "No account found with this email. Please register first."
+                ));
+
         if (!user.getPassword().equals(request.getPassword())) {
-            throw new RuntimeException("Invalid email or password");
+            throw new RuntimeException(
+                    "Incorrect password. Please try again."
+            );
         }
+
+        // ── Approach 1: Secure message (pick this for production) ────
+        // User user = userRepository.findByEmail(request.getEmail())
+        //         .orElseThrow(() -> new RuntimeException(
+        //                 "No account found or incorrect password. Please check your details."
+        //         ));
+        // if (!user.getPassword().equals(request.getPassword())) {
+        //     throw new RuntimeException(
+        //             "No account found or incorrect password. Please check your details."
+        //     );
+        // }
 
         return new AuthDto.AuthResponse(
                 user.getId(),

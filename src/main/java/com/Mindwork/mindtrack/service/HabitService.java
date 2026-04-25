@@ -3,7 +3,6 @@ package com.Mindwork.mindtrack.service;
 import com.Mindwork.mindtrack.dto.HabitDto;
 import com.Mindwork.mindtrack.entity.Habit;
 import com.Mindwork.mindtrack.entity.HabitLog;
-import com.Mindwork.mindtrack.entity.Notification;
 import com.Mindwork.mindtrack.entity.User;
 import com.Mindwork.mindtrack.repository.HabitLogRepository;
 import com.Mindwork.mindtrack.repository.HabitRepository;
@@ -19,10 +18,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class HabitService {
 
-    private final HabitRepository        habitRepository;
-    private final HabitLogRepository     habitLogRepository;
-    private final UserRepository         userRepository;
-    private final NotificationService    notificationService; // ← added
+    private final HabitRepository      habitRepository;
+    private final HabitLogRepository   habitLogRepository;
+    private final UserRepository       userRepository;
+    private final GamificationService  gamificationService; // ← added
 
     public HabitDto.HabitResponse createHabit(Long userId, HabitDto.CreateHabitRequest request) {
         User user = userRepository.findById(userId)
@@ -57,13 +56,15 @@ public class HabitService {
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new RuntimeException("Habit not found"));
 
-        LocalDate logDate = request.getDate() != null ? request.getDate() : LocalDate.now();
+        LocalDate logDate = request.getDate() != null
+                ? request.getDate() : LocalDate.now();
+
         HabitLog.LogStatus status = request.getStatus() != null
-                ? request.getStatus()
-                : HabitLog.LogStatus.DONE;
+                ? request.getStatus() : HabitLog.LogStatus.DONE;
 
         // Update if already logged today, else create new
-        List<HabitLog> existingLogs = habitLogRepository.findByHabitAndDate(habit, logDate);
+        List<HabitLog> existingLogs = habitLogRepository
+                .findByHabitAndDate(habit, logDate);
         HabitLog log;
 
         if (!existingLogs.isEmpty()) {
@@ -79,22 +80,20 @@ public class HabitService {
 
         HabitLog saved = habitLogRepository.save(log);
 
-        // ── Send notification when habit is marked DONE ──────────────
+        // ── Gamification — XP + streak + badges ──────────────────────
         if (saved.getStatus() == HabitLog.LogStatus.DONE) {
-            notificationService.createNotification(
-                    habit.getUser().getId(),
-                    "Habit completed! ◧",
-                    "You completed \"" + habit.getName() + "\" — keep the streak alive!",
-                    Notification.NotificationType.HABIT_REMINDER
+            gamificationService.onHabitCompleted(
+                    habit.getUser().getId(), habit
             );
         }
 
         return toHabitLogResponse(saved);
     }
 
-    // ── Private Mappers ──────────────────────────────────────────────────────────
+    // ── Private Mappers ───────────────────────────────────────────────────
 
-    private HabitDto.HabitResponse toHabitResponse(Habit habit, boolean completedToday) {
+    private HabitDto.HabitResponse toHabitResponse(Habit habit,
+                                                   boolean completedToday) {
         return new HabitDto.HabitResponse(
                 habit.getId(),
                 habit.getName(),

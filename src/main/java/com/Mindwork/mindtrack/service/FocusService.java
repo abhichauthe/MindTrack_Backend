@@ -1,6 +1,5 @@
 package com.Mindwork.mindtrack.service;
 
-
 import com.Mindwork.mindtrack.dto.FocusDto;
 import com.Mindwork.mindtrack.entity.FocusSession;
 import com.Mindwork.mindtrack.entity.User;
@@ -18,27 +17,43 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FocusService {
 
-    private final FocusSessionRepository focusSessionRepository;
-    private final UserRepository userRepository;
+    private final FocusSessionRepository  focusSessionRepository;
+    private final UserRepository          userRepository;
+    private final GamificationService     gamificationService; // ← added
 
-    public FocusDto.FocusSessionResponse saveSession(Long userId, FocusDto.SaveSessionRequest request) {
+    public FocusDto.FocusSessionResponse saveSession(Long userId,
+                                                     FocusDto.SaveSessionRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         FocusSession session = FocusSession.builder()
                 .user(user)
                 .durationMinutes(request.getDurationMinutes())
-                .type(request.getType() != null ? request.getType() : FocusSession.SessionType.FOCUS)
-                .status(request.getStatus() != null ? request.getStatus() : FocusSession.SessionStatus.COMPLETED)
+                .type(request.getType() != null
+                        ? request.getType()
+                        : FocusSession.SessionType.FOCUS)
+                .status(request.getStatus() != null
+                        ? request.getStatus()
+                        : FocusSession.SessionStatus.COMPLETED)
                 .startedAt(request.getStartedAt())
-                .completedAt(request.getCompletedAt() != null ? request.getCompletedAt() : LocalDateTime.now())
+                .completedAt(request.getCompletedAt() != null
+                        ? request.getCompletedAt()
+                        : LocalDateTime.now())
                 .build();
 
-        return new FocusDto.FocusSessionResponse(focusSessionRepository.save(session));
+        FocusSession saved = focusSessionRepository.save(session);
+
+        // ── Gamification — XP + badges ────────────────────────────────
+        if (saved.getStatus() == FocusSession.SessionStatus.COMPLETED) {
+            gamificationService.onFocusCompleted(userId, saved);
+        }
+
+        return new FocusDto.FocusSessionResponse(saved);
     }
 
     public List<FocusDto.FocusSessionResponse> getSessions(Long userId) {
-        return focusSessionRepository.findByUserIdOrderByCreatedAtDesc(userId)
+        return focusSessionRepository
+                .findByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(FocusDto.FocusSessionResponse::new)
                 .collect(Collectors.toList());
@@ -48,10 +63,15 @@ public class FocusService {
         LocalDateTime startOfDay  = LocalDateTime.now().with(LocalTime.MIDNIGHT);
         LocalDateTime startOfWeek = LocalDateTime.now().minusDays(7);
 
-        long totalSessions      = focusSessionRepository.countByUserIdAndStatus(userId, FocusSession.SessionStatus.COMPLETED);
-        Integer minutesToday    = focusSessionRepository.getTotalFocusMinutesSince(userId, startOfDay);
-        Integer minutesThisWeek = focusSessionRepository.getTotalFocusMinutesSince(userId, startOfWeek);
+        long    totalSessions   = focusSessionRepository
+                .countByUserIdAndStatus(userId, FocusSession.SessionStatus.COMPLETED);
+        Integer minutesToday    = focusSessionRepository
+                .getTotalFocusMinutesSince(userId, startOfDay);
+        Integer minutesThisWeek = focusSessionRepository
+                .getTotalFocusMinutesSince(userId, startOfWeek);
 
-        return new FocusDto.FocusStatsResponse(totalSessions, minutesToday, minutesThisWeek);
+        return new FocusDto.FocusStatsResponse(
+                totalSessions, minutesToday, minutesThisWeek
+        );
     }
 }
