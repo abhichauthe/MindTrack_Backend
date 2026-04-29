@@ -13,7 +13,8 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class DisciplineService {
+public class
+DisciplineService {
 
     private final DisciplineRepository disciplineRepository;
     private final UserRepository       userRepository;

@@ -65,6 +65,16 @@ public class TimeBlock {
     @Builder.Default
     private boolean autoScheduled = false;
 
+    // Link to the recurring habit template that created this block
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recurring_habit_id")
+    private RecurringHabit recurringHabit;
+
+    // Whether this block was auto-generated from a recurring habit
+    @Column(name = "is_recurring")
+    @Builder.Default
+    private boolean recurring = false;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
