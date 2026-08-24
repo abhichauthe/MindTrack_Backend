@@ -1,1 +1,11 @@
-
+target/
+.git/
+.gitignore
+.gitattributes
+.idea/
+*.iml
+.vscode/
+*.md
+.mvn/wrapper/maven-wrapper.jar
+.env
+*.log
